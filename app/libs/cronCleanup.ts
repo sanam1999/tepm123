@@ -5,7 +5,7 @@ import { cleanupOldPDFs } from "./cleanUpPDFs";
 cron.schedule("0 0 * * *", async () => {
   console.log("Running scheduled PDF cleanup...");
   try {
-    await cleanupOldPDFs(3); // keeps last 3 days
+    await cleanupOldPDFs(7); // keeps last 3 days
   } catch (err) {
     console.error("Scheduled PDF cleanup failed:", err);
   }

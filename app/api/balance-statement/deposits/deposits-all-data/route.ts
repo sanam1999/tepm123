@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
             orderBy: { createdAt: "desc" },
         });
 
-        const serializedDeposits = deposits.map((deposit) => ({
+        const serializedDeposits = deposits.map((deposit: any) => ({
             id: deposit.id.toString(),
             currencyType: deposit.currencyType,
             amount: Number(deposit.amount),

@@ -1,7 +1,6 @@
-import fs from "fs";
-import path from "path";
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/app/libs/prisma";
+import { supabaseAdmin, PDF_BUCKET } from "@/app/libs/supabase";
 
 /** Convert current time to Sri Lanka local time (UTC+5:30) */
 function getSriLankaTime(): Date {
@@ -21,32 +20,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ---- Create PDF Folder if missing ----
-    const folderPath = path.join(process.cwd(), "public", "pdf");
+    // ---- Convert base64 to buffer ----
+    const buffer = Buffer.from(pdfBase64, "base64");
 
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
+    // ---- Upload PDF to Supabase Storage ----
+    const storagePath = `receipts/${fileName}`;
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(PDF_BUCKET)
+      .upload(storagePath, buffer, {
+        contentType: "application/pdf",
+        upsert: true, // overwrite if same filename exists
+      });
+
+    if (uploadError) {
+      console.error("Supabase Storage upload error:", uploadError);
+      return NextResponse.json(
+        { error: "Failed to upload PDF to storage" },
+        { status: 500 }
+      );
     }
 
-    const filePath = path.join(folderPath, fileName);
+    // ---- Get the public URL ----
+    const { data: urlData } = supabaseAdmin.storage
+      .from(PDF_BUCKET)
+      .getPublicUrl(storagePath);
 
-    // ---- Convert and Write PDF File ----
-    const buffer = Buffer.from(pdfBase64, "base64");
-    fs.writeFileSync(filePath, buffer);
+    const publicUrl = urlData.publicUrl;
 
-    // ---- Create DB Entry with Sri Lanka Time ----
+    // ---- Save record in DB with Sri Lanka Time ----
     await prisma.receiptPDF.create({
       data: {
         receiptId: BigInt(receiptId),
         fileName,
-        filePath: `/pdf/${fileName}`,
-        createdAt: getSriLankaTime(), 
+        filePath: publicUrl, // store the full Supabase public URL
+        createdAt: getSriLankaTime(),
       },
     });
 
     return NextResponse.json({
       message: "PDF saved successfully",
-      filePath: `/pdf/${fileName}`,
+      filePath: publicUrl,
     });
   } catch (err) {
     console.error("Error saving PDF:", err);
