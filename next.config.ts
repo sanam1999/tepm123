@@ -1,11 +1,4 @@
-
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-  },
-};
+const nextConfig = {};
 
 module.exports = nextConfig;
